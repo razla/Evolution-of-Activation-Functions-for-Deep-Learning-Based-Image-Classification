@@ -1,5 +1,5 @@
-from utils import random_string, write_params, fprint, conv_net, vanilla_net, pretrained_net, print_losses_acc_to_file
-from utils import get_args, get_dataset_name, get_af, permutation_tests, write_summary
+from utils import random_string, write_params, fprint, conv_net, vanilla_net, print_losses_acc_to_file
+from utils import get_args, get_dataset_name, get_af, write_summary
 from cartesian.algorithm import oneplus
 from data import load_dataset
 from cartesian.cgp import *
@@ -11,6 +11,7 @@ import numpy as np
 import torch
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
+# device = 'cpu'
 best_coevo_l1_af = None
 best_coevo_l2_af = None
 best_coevo_l3_af = None
@@ -37,6 +38,7 @@ train_loader = None
 val_loader = None
 test_loader = None
 file_name = None
+cnn = None
 
 def initialize_params():
     global best_coevo_l1_af, best_coevo_l2_af, best_coevo_l3_af, best_coevo_score
@@ -88,8 +90,8 @@ def network_score(net):
 
         epochs_train_losses[epoch] = train_batch_loss / len(all_train_loader)
         epochs_train_acc[epoch] = test_true / test_total
-        print(f'Training loss for epoch #{epoch}: {epochs_train_losses[epoch]}')
-        print(f'Training accuracy for epoch #{epoch}: {epochs_train_acc[epoch]}')
+        print(f'Training loss for epoch #{epoch}: {epochs_train_losses[epoch]:.4f}')
+        print(f'Training accuracy for epoch #{epoch}: {epochs_train_acc[epoch]:.4f}')
 
         test_total = 0
         test_true = 0
@@ -109,8 +111,8 @@ def network_score(net):
 
             epochs_test_losses[epoch] = test_batch_loss / len(test_loader)
             epochs_test_acc[epoch] = test_true / test_total
-            print(f'Test loss for epoch #{epoch}: {epochs_test_losses[epoch]}')
-            print(f'Test accuracy for epoch #{epoch}: {epochs_test_acc[epoch]}')
+            print(f'Test loss for epoch #{epoch}: {epochs_test_losses[epoch]:.4f}')
+            print(f'Test accuracy for epoch #{epoch}: {epochs_test_acc[epoch]:.4f}')
 
     print_losses_acc_to_file(file_name, epochs_train_losses, epochs_test_losses, epochs_train_acc, epochs_test_acc, mode_flag)
 
@@ -119,7 +121,10 @@ def network_score(net):
 def standard_fc():
     _, af = get_af(n_baseline_af)
     activation_functions = [af, af, af]
-    net = vanilla_net(activation_functions, output_dim)
+    if cnn:
+        net = conv_net(activation_functions, output_dim)
+    else:
+        net = vanilla_net(activation_functions, output_dim)
     score = network_score(net)
     return score
 
@@ -129,7 +134,10 @@ def random_fc():
     af_cartesian = Cartesian('Random', pset, n_rows=5, n_columns=5, n_back=5)
     oneplus(random_fitness, f_tol=0.01, cls=af_cartesian, maxiter = 2, lambda_= n_iter * 3)
     activation_functions = best_random_afs
-    best_random_net = vanilla_net(activation_functions, output_dim)
+    if cnn:
+        best_random_net = conv_net(activation_functions, output_dim)
+    else:
+        best_random_net = vanilla_net(activation_functions, output_dim)
     score = network_score(best_random_net)
     return score
 
@@ -139,8 +147,11 @@ def evo_single_fc():
     af_cartesian = Cartesian('Evo-Single', pset, n_rows=5, n_columns=5, n_back=5)
     oneplus(evo_single_fitness, f_tol=0.01, cls=af_cartesian, maxiter=n_iter * 3)
     activation_functions = best_evo_single_afs
-    best_evo_net = vanilla_net(activation_functions, output_dim)
-    score = network_score(best_evo_net)
+    if cnn:
+        best_evo_single_net = conv_net(activation_functions, output_dim)
+    else:
+        best_evo_single_net = vanilla_net(activation_functions, output_dim)
+    score = network_score(best_evo_single_net)
     return score
 
 def evo_triple_fc():
@@ -149,7 +160,10 @@ def evo_triple_fc():
     af_cartesian = Cartesian('Evo-Triple', pset, n_rows=5, n_columns=5, n_back=5)
     oneplus(evo_triple_fitness, f_tol=0.01, cls=af_cartesian, maxiter=n_iter * 3)
     activation_functions = best_evo_triple_afs
-    best_evo_net = vanilla_net(activation_functions, output_dim)
+    if cnn:
+        best_evo_net = conv_net(activation_functions, output_dim)
+    else:
+        best_evo_net = vanilla_net(activation_functions, output_dim)
     score = network_score(best_evo_net)
     return score
 
@@ -162,7 +176,10 @@ def coevo_fc():
     oneplus(coevo_fitness, f_tol=0.01, cls=af_cartesian, maxiter=n_iter)
     mode_flag = 5
     oneplus(coevo_fitness, f_tol=0.01, cls=af_cartesian, maxiter=n_iter)
-    best_coevo_net = vanilla_net([best_coevo_l1_af, best_coevo_l2_af, best_coevo_l3_af], output_dim)
+    if cnn:
+        best_coevo_net = conv_net([best_coevo_l1_af, best_coevo_l2_af, best_coevo_l3_af], output_dim)
+    else:
+        best_coevo_net = vanilla_net([best_coevo_l1_af, best_coevo_l2_af, best_coevo_l3_af], output_dim)
     score = network_score(best_coevo_net)
     return score
 
@@ -174,7 +191,10 @@ def random_fitness(individual):
     activation_functions = best_random_afs
     rand = np.random.randint(0, 3)
     activation_functions = activation_functions[:rand] + [func] + activation_functions[rand + 1:]
-    net = vanilla_net(activation_functions, output_dim)
+    if cnn:
+        net = conv_net(activation_functions, output_dim)
+    else:
+        net = vanilla_net(activation_functions, output_dim)
     result, is_best = fitness(net)
     if is_best:
         best_random_afs = activation_functions
@@ -185,7 +205,10 @@ def evo_single_fitness(individual):
     print(f'AF: {to_polish(individual)[0][0]}')
     func = compile(individual)
     activation_functions = [func, func, func]
-    net = vanilla_net(activation_functions, output_dim)
+    if cnn:
+        net = conv_net(activation_functions, output_dim)
+    else:
+        net = vanilla_net(activation_functions, output_dim)
     result, is_best = fitness(net)
     if is_best:
         best_evo_single_afs = activation_functions
@@ -198,7 +221,10 @@ def evo_triple_fitness(individual):
     activation_functions = best_evo_triple_afs
     rand = np.random.randint(0, 3)
     activation_functions = activation_functions[:rand] + [func] + activation_functions[rand+1:]
-    net = vanilla_net(activation_functions, output_dim)
+    if cnn:
+        net = conv_net(activation_functions, output_dim)
+    else:
+        net = vanilla_net(activation_functions, output_dim)
     result, is_best = fitness(net)
     if is_best:
         best_evo_triple_afs = activation_functions
@@ -213,7 +239,10 @@ def coevo_fitness(individual):
         activation_functions = [best_coevo_l1_af, func, best_coevo_l3_af]
     elif mode_flag == 5:
         activation_functions = [best_coevo_l1_af, best_coevo_l2_af, func]
-    net = vanilla_net(activation_functions, output_dim)
+    if cnn:
+        net = conv_net(activation_functions, output_dim)
+    else:
+        net = vanilla_net(activation_functions, output_dim)
     result, is_best = fitness(net)
     if is_best and mode_flag == 3:
         print(f'Best Input AF: {to_polish(individual)[0][0]}')
@@ -262,8 +291,8 @@ def fitness(net):
 
         epochs_train_losses[epoch] = train_batch_loss / len(train_loader)
         epochs_train_acc[epoch] = test_true / test_total
-        print(f'Training loss for epoch #{epoch}: {epochs_train_losses[epoch]}')
-        print(f'Training accuracy for epoch #{epoch}: {epochs_train_acc[epoch]}')
+        print(f'Training loss for epoch #{epoch}: {epochs_train_losses[epoch]:.4f}')
+        print(f'Training accuracy for epoch #{epoch}: {epochs_train_acc[epoch]:.4f}')
 
         test_total = 0
         test_true = 0
@@ -284,8 +313,8 @@ def fitness(net):
 
             epochs_val_losses[epoch] = val_batch_loss / len(val_loader)
             epochs_val_acc[epoch] = test_true / test_total
-            print(f'Test loss for epoch #{epoch}: {epochs_val_losses[epoch]}')
-            print(f'Test accuracy for epoch #{epoch}: {epochs_val_acc[epoch]}')
+            print(f'Test loss for epoch #{epoch}: {epochs_val_losses[epoch]:.4f}')
+            print(f'Test accuracy for epoch #{epoch}: {epochs_val_acc[epoch]:.4f}')
 
         if mode_flag == 0 and epochs_val_acc[epoch] > best_random_score:
             best_random_score = epochs_val_acc[epoch]
@@ -309,9 +338,9 @@ def fitness(net):
     return max(epochs_val_acc), flag_best
 
 def main():
-    global res_dir, n_dataset, n_replicates, n_baseline_af, n_iter, n_epochs, output_dim
+    global res_dir, n_dataset, n_replicates, n_baseline_af, n_iter, n_epochs, output_dim, cnn
     global all_train_loader, train_loader, val_loader, test_loader, batch_size, file_name
-    res_dir, n_dataset, n_replicates, n_epochs, n_baseline_af, n_iter = get_args()
+    res_dir, n_dataset, n_replicates, n_epochs, n_baseline_af, n_iter, train1_size, train2_size, cnn = get_args()
     dataset_name = get_dataset_name(n_dataset)
     baseline_af_name, baseline_af = get_af(n_baseline_af)
 
@@ -320,13 +349,13 @@ def main():
 
     file_name = res_dir + dataset_name + '_' + baseline_af_name + '_' + random_string() + '.txt'
 
-    write_params(file_name, device, dataset_name, n_replicates, n_epochs, n_iter, baseline_af_name)
+    write_params(file_name, device, dataset_name, n_replicates, n_epochs, n_iter, baseline_af_name, train1_size, train2_size, cnn)
 
     scores = {'standard': [], 'random': [], 'evo-single': [], 'evo-triple': [], 'coevo': []}
 
     for rep in range(n_replicates):
         initialize_params()
-        all_train_loader, train_loader, val_loader, test_loader, batch_size = load_dataset(n_dataset)
+        all_train_loader, train_loader, val_loader, test_loader, batch_size = load_dataset(n_dataset, train1_size, train2_size)
 
         score_standard_fc = standard_fc()
         scores['standard'].append(score_standard_fc)
@@ -347,6 +376,10 @@ def main():
         score_coevo_fc = coevo_fc()
         scores['coevo'].append(score_coevo_fc)
         fprint(file_name, f'\n Replicate {rep}, coevo fc:\n\t score - {score_coevo_fc}')
+
+    print(f'############################################################')
+    print(f'Finished! the results are written in `{res_dir}` directory.')
+    print(f'############################################################')
 
     fprint(file_name, f'\n\n Summary of {n_replicates} replicates:\n\t')
 

@@ -3,7 +3,7 @@ import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import torch
 
-def load_dataset(n_dataset):
+def load_dataset(n_dataset, train1_size, train2_size):
     if n_dataset == 1:
         #### MNIST ####
         mean = torch.tensor([0.1306])
@@ -14,8 +14,6 @@ def load_dataset(n_dataset):
             download=True,
             transform=transforms.Compose([
                 transforms.ToTensor(),
-                # lambda x: x.repeat(3, 1, 1),
-                # transforms.Resize(32),
                 transforms.Normalize(mean, std)
             ])
         )
@@ -26,8 +24,6 @@ def load_dataset(n_dataset):
             download=True,
             transform=transforms.Compose([
                 transforms.ToTensor(),
-                # lambda x: x.repeat(3, 1, 1),
-                # transforms.Resize(32),
                 transforms.Normalize(mean, std)
             ])
         )
@@ -42,8 +38,6 @@ def load_dataset(n_dataset):
             download=True,
             transform=transforms.Compose([
                 transforms.ToTensor(),
-                # lambda x: x.repeat(3, 1, 1),
-                # transforms.Resize(32),
                 transforms.Normalize(mean, std)
             ])
         )
@@ -54,8 +48,6 @@ def load_dataset(n_dataset):
             download=True,
             transform=transforms.Compose([
                 transforms.ToTensor(),
-                # lambda x: x.repeat(3, 1, 1),
-                # transforms.Resize(32),
                 transforms.Normalize(mean, std)
             ])
         )
@@ -69,8 +61,6 @@ def load_dataset(n_dataset):
             download=True,
             transform=transforms.Compose([
                 transforms.ToTensor(),
-                # lambda x: x.repeat(3, 1, 1),
-                # transforms.Resize(32),
                 transforms.Normalize(mean, std)
             ])
         )
@@ -81,8 +71,6 @@ def load_dataset(n_dataset):
             download=True,
             transform=transforms.Compose([
                 transforms.ToTensor(),
-                # lambda x: x.repeat(3, 1, 1),
-                # transforms.Resize(32),
                 transforms.Normalize(mean, std)
             ])
         )
@@ -96,7 +84,6 @@ def load_dataset(n_dataset):
             download=True,
             transform=transforms.Compose([
                 transforms.ToTensor(),
-                # lambda x: x.repeat(3, 1, 1),
                 transforms.Resize(28),
                 transforms.Normalize(mean, std)
             ])
@@ -108,7 +95,6 @@ def load_dataset(n_dataset):
             download=True,
             transform=transforms.Compose([
                 transforms.ToTensor(),
-                # lambda x: x.repeat(3, 1, 1),
                 transforms.Resize(28),
                 transforms.Normalize(mean, std)
             ])
@@ -116,15 +102,13 @@ def load_dataset(n_dataset):
     else:
         raise Exception("Sorry, no such dataset")
 
-    print(type(training_data))
-
-    train_size = int(len(training_data) * 0.8)
-    val_size = int(len(training_data) * 0.2)
+    train_size = int(len(training_data) * train1_size)
+    val_size = int(len(training_data) * train2_size)
     left_overs_size = int(len(training_data) - (train_size + val_size))
     test_size = int(len(test_data))
     left_out_test_size = int(len(test_data) - test_size)
-    # Splits the training set into training and validation subsets
 
+    # Splits the training set into training and validation subsets
     train_val_subset, left_overs = torch.utils.data.random_split(training_data, [train_size + val_size, left_overs_size],
                                                                  generator=torch.Generator().manual_seed(1))
 

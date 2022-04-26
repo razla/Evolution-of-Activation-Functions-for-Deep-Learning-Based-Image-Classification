@@ -1,10 +1,8 @@
 from neural_network import ConvNet, NeuralNet
 from mlxtend.evaluate import permutation_test
-from fully_connected import FullyConnected
-import torchvision.models as models
 from argparse import ArgumentParser
+from argparse import BooleanOptionalAction
 from string import ascii_lowercase
-import matplotlib.pyplot as plt
 from statistics import median, mean
 from sys import stdin, exit
 from random import choices
@@ -20,12 +18,23 @@ def get_args():
     parser.add_argument('--n_epochs', dest='n_epochs', type=int, action='store', help='number of epochs')
     parser.add_argument('--n_baseline_af', dest='n_baseline_af', type=int, action='store', help='AF baseline: 1. ReLU, 2. LeakyReLU')
     parser.add_argument('--n_iter', dest='n_iter', type=int, action='store', help='number of generations (evolution)')
+    parser.add_argument('--n_train1', dest='n_train1', type=float, action='store', help='Train1 set size as a fraction')
+    parser.add_argument('--n_train2', dest='n_train2', type=float, action='store', help='Train2 set size as a fraction')
+    parser.add_argument('--cnn', dest='cnn', action=BooleanOptionalAction)
     args = parser.parse_args()
     if None in [getattr(args, arg) for arg in vars(args)]:
         parser.print_help()
         exit()
-    res_dir, n_dataset, n_replicates, n_epochs, n_baseline_af, n_iter = args.res_dir + '/', args.n_dataset, args.n_replicates, args.n_epochs, args.n_baseline_af, args.n_iter
-    return res_dir, n_dataset, n_replicates, n_epochs, n_baseline_af, n_iter
+    res_dir, n_dataset, n_replicates, n_epochs, n_baseline_af, n_iter, n_train1, n_train2, cnn = args.res_dir + '/', \
+                                                                                                 args.n_dataset, \
+                                                                                                 args.n_replicates,\
+                                                                                                 args.n_epochs,\
+                                                                                                 args.n_baseline_af,\
+                                                                                                 args.n_iter,\
+                                                                                                 args.n_train1,\
+                                                                                                 args.n_train2,\
+                                                                                                 args.cnn
+    return res_dir, n_dataset, n_replicates, n_epochs, n_baseline_af, n_iter, n_train1, n_train2, cnn
 
 def get_dataset_name(n_dataset):
     if n_dataset == 1:
@@ -58,20 +67,16 @@ def fprint(fname, s):
     with open(Path(fname), 'a') as f:
         f.write(s)
 
-def write_params(file_name, device, ds_name, n_replicates, n_epochs, n_iter, baseline_af_name):
+def write_params(file_name, device, ds_name, n_replicates, n_epochs, n_iter, baseline_af_name, train1_size, train2_size, cnn):
     fprint(file_name, f' Device: {device}\n'
                       f' Dataset name: {ds_name}\n'
+                      f' Train1 size (fraction): {train1_size}\n'
+                      f' Train2 size (fraction): {train2_size}\n'
+                      f' Architecture: {"CNN" if cnn else "FCN"}\n'
                       f' Num of replicates: {n_replicates}\n'
                       f' Number of epochs: {n_epochs}\n'
                       f' Baseline activation function: {baseline_af_name}\n'
                       f' Number of generations {n_iter}\n')
-
-def pretrained_net(activation_functions, output_dim):
-    net = models.resnet18(pretrained=True)
-    for param in net.parameters():
-        param.requires_grad = False
-    net.fc = FullyConnected(activation_functions, output_dim)
-    return net
 
 def conv_net(activation_functions, output_dim):
     net = ConvNet(activation_functions, output_dim)
@@ -84,7 +89,12 @@ def vanilla_net(activation_functions, output_dim):
 def write_summary(scores, file_name):
     means = []
     for (net, score) in scores.items():
-        means.append((net, mean(score), score))
+        if len(score) == 0:
+            break
+        elif len(score) == 1:
+            means.append((net, score, score))
+        else:
+            means.append((net, mean(score), score))
     means = sorted(means, key=lambda x: x[1], reverse=True)
     s = ''
     for (net, score, _) in means:
