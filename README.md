@@ -9,7 +9,7 @@ Tested on four datasets---MNIST, FashionMNIST, KMNIST, and USPS---coevolution pr
 
 ## Prerequisites
 
-2. Python3 (>=3.6)
+1. Python3 (>=3.6)
 
 ## Required Python Packages
 
