@@ -1,6 +1,6 @@
 # Evolution of Activation Functions for Deep Learning Based Image Classification 
 
-## This paper was submitted to GECCO's 2022 Workshop Neuroevolution at Work.
+## This paper was accepted to GECCO's 2022 Workshop Neuroevolution at Work.
 
 ### Abstract:
 Activation functions (AFs) play a pivotal role in the performance of  neural networks.
